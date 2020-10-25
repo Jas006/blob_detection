@@ -33,4 +33,5 @@ Vous ne devez cliquer appuyer qu'une seule fois sur ce bouton. Quand c'est fait,
 (en cliquant dur le x) et patientez. Le temps d'analyse dépend de la grosseur des images. Pour une image (2048 x 2048),
 le temps d'exécution avoisinne les 15 minutes.
 
-Dans le dossier d'analyse, vous retrouverez les images analysées et les caractéristiques de toutes les détections
+Dans le dossier d'analyse, vous retrouverez les images analysées et les caractéristiques de toutes les détections.
+Vous devez exécuter le fichier tkinter complet pour débuter le GUI
