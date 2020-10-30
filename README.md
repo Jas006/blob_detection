@@ -28,10 +28,8 @@ Vous pouvez choisir les channels que vous voulez analyser.
 Dans la deuxième fenêtre qui s'ouvre, les paramètres à suggérés sont écrit entre parenthèses.
 Lorsque vous ne savez pas ce que le paramètre veut dire, vous pouvez cliquer sur l'énoncé; c'est un
 lien hypertexte qui vous mènera à une page web vous expliquant sa définition.
-Quand vous cliquez sur le bouton poursuivre analyse, il est normal qu'il n'y ait aucune réaction.
-Vous ne devez cliquer appuyer qu'une seule fois sur ce bouton. Quand c'est fait, vous quittez la fenêtre
-(en cliquant dur le x) et patientez. Le temps d'analyse dépend de la grosseur des images. Pour une image (2048 x 2048),
-le temps d'exécution avoisinne les 15 minutes.
+Quand vous cliquez sur le bouton poursuivre analyse, une fenêtre apparaîtra et vous expliquera la procédure à suivre.
+Pour une image (2048 x 2048),le temps d'exécution avoisinne les 15 minutes.
 
 Dans le dossier d'analyse, vous retrouverez les images analysées et les caractéristiques de toutes les détections.
-Vous devez exécuter le fichier tkinter complet pour débuter le GUI
+Vous devez exécuter le fichier Interface_graphique.py pour débuter le GUI
