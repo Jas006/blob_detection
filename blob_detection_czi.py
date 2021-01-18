@@ -15,14 +15,22 @@ from PIL import Image
 
 
 def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,seuil_percentile=99.2,max_sigma=30, num_sigma=10, threshold=0.1,Path_enregistrement=None,d_semblables=3,enregistrementblob=None,enregistrement_blur=None,enregistrement_hdome=None,enregistrement_th=None,enregistrement_seuil=None,oui_non_image1="non",enregistrement_image1=None,enregistrement_detection=None):
+    # Initialisation fichier excel
     workbook = xlsxwriter.Workbook(Path_enregistrement+r'\analyze_excel.xlsx')
+    #
     liste_gauss_x=[]
     liste_gauss_y=[]
+    liste_x=[]
+    liste_y=[]
+    #La liste_excel renferme les différentes pages excel
     liste_excel = []
     bold = workbook.add_format({'bold': True})
+    # Importation image czi
     image_importe = czifile.imread(path)
+    # Dimensions x et y de l'image
     x_image=len(image_importe[0,0,0,0,0])
     y_image=len(image_importe[0,0,0,0,0,0])
+    # Chaque feuille excel a son nom selon z,canal
     for z in range(len(liste_z)):
         for c in range(len(channel)):
             liste_excel.append(workbook.add_worksheet(f"Canal{c+1}_z{liste_z[z]+1}"))
@@ -30,36 +38,50 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
     for i in range(len(liste_excel)):
         liste_excel[i].set_column('A:A',20)
 
+    # Entrée: image, z, canal
+    # Sortie: Image débruitée
     def denoising(image,gamma,zeta):
         # On applique un filtre (gaussien, circulaire, moyen...) sur l'image pour enlever le bruit
         image_debruite = gaussian_filter(image, sigma_filtre_gaussien)
         im=Image.fromarray(image_debruite)
         im.save(enregistrement_blur+fr"\channel_{gamma+1}_z_{zeta+1}.tif")
         return image_debruite
+
+    # Entrée: image, z, canal
+    # Sortie: Image améliorée
     def h_dome(image_debruite,gamma,zeta):
         seed = np.copy(image_debruite)
         seed[1:-1, 1:-1] = image_debruite.min()
         mask = image_debruite
         dilated = reconstruction(seed, mask, method='dilation')
         image_a_analyser = image_debruite - dilated
-        plt.imshow(image_a_analyser)
-        plt.savefig(enregistrement_hdome + rf"\channel_{gamma+1}_z_{zeta+1}.png")
+        im=Image.fromarray(image_a_analyser,"L")
+        im.save(enregistrement_hdome + rf"\channel_{gamma+1}_z_{zeta+1}.png")
         return image_a_analyser
+
+    # Entrée: image, z, canal
+    # Sortie: Image améliorée
     def top_hat(image_a_analyser,gamma,zeta):
         image_a_analyser = hat(image_a_analyser, taille_tophat)
-        plt.imshow(image_a_analyser)
-        plt.savefig(enregistrement_th + rf"\channel_{gamma+1}_z_{zeta+1}.png")
+        im = Image.fromarray(image_a_analyser, "L")
+        im.save(enregistrement_th + rf"\channel_{gamma + 1}_z_{zeta + 1}.png")
         return image_a_analyser
+
+    # Entrée: image, z, canal
+    # Sortie: Image améliorée
     def thresholding(image_a_analyser,gamma,zeta):
         minimum = np.percentile(image_a_analyser, seuil_percentile)
         for i in range(x_image):
             for j in range(y_image):
                 if image_a_analyser[i][j] <= minimum:
                     image_a_analyser[i][j] = 0
-        plt.imshow(image_a_analyser)
-        plt.savefig(enregistrement_seuil + f"\channel_{gamma+1}_z_{zeta+1}.png")
+        im = Image.fromarray(image_a_analyser, "L")
+        im.save(enregistrement_seuil + rf"\channel_{gamma + 1}_z_{zeta + 1}.png")
         return image_a_analyser
-    def blob_detection(image,gamma,zeta,somme_excel,liste):
+
+    # Entrée: Image, canal, z, numéro de la page excel, liste contenant images avec détection
+    def blob_detection(image,gamma,zeta,somme_excel,gauss_x,gauss_y,xliste,yliste):
+        # Rendre les images en gris
         image=rgb2gray(image)
 
         blobs_log=blob_log(image,max_sigma=max_sigma,num_sigma=num_sigma,threshold=threshold)
@@ -99,43 +121,15 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
 
         plt.savefig(enregistrementblob+rf"\z{zeta+1}_channel{gamma+1}")
         somme_excel+=1
-        liste.append(liste11)
-        liste.append(liste12)
-        liste_gauss_x.append(liste11)
-        liste_gauss_y.append(liste12)
-    def points_semblables(liste, somme_excel):
-        worksheet = liste_excel[somme_excel]
-        worksheet.write('A1', 'x', bold)
-        worksheet.write('B1', 'y', bold)
-        liste_matrices=[]
-        def matrix(ly, lx):
-            matriceb = np.zeros((2048, 2048))
-            for i in range(-1*len(channel), 1+len(channel)):
-                for k in range(-1*len(channel), 1+len(channel)):
-                    for j in range(len(ly)):
-                        if i + ly[j] >= 100 or i + ly[j] < 0 or k + lx[j] >= 100 or k + lx[j] < 0:
-                            pass
-                        else:
-                            matriceb[ly[j] + i, lx[j] + k] = 1
-            return matriceb
-        for m in range(len(channel)):
-            liste_matrices.append(matrix(liste_gauss_y[m],liste_gauss_x[m]))
-        matrice_grosse=np.zeros((y_image,x_image))
-        for n in range(len(channel)):
-            matrice_grosse+=liste_matrices[n]
-        x = np.where(matrice_grosse > len(channel)-1)[1]
-        y = np.where(matrice_grosse > len(channel)-1)[0]
-        derni = np.zeros((y_image, x_image))
-        derni[y, x] = 1
-        frame = cv2.inRange(derni, 1, 10)
-        blobs = frame > 10
-        labels, nlabels = ndimage.label(blobs)
-        # find the center of mass of each label
-        t = ndimage.center_of_mass(frame, labels, np.arange(nlabels) + 1)
+        gauss_x.append(liste11)
+        gauss_y.append(liste12)
+    def points_semblables(somme_excel,ly,lx):
+        worksheet=liste_excel[somme_excel]
+        worksheet.write("A1","x",bold)
+        worksheet.write('A2','y',bold)
 
-        for i in range(len(t)):
-            worksheet.write(1+i,1,t[1])
-            worksheet.write(1+i,2,t[0])
+
+    # Fonctions pour fit gaussien
     def gaussian(height, center_x, center_y, sigma, offset):
         """Returns a gaussian function with the given parameters"""
         sigma = float(sigma)
@@ -182,50 +176,68 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
                int(point_x - largeur_x):int(point_x + largeur_x)]
         return data, min_x, min_y
 
-    sommep=0
+    # La variable numero_page_excel fait référence au numéro de la page
+    #    excel auquel on est rendu dans l'analyse
+    numero_page_excel=0
+    # Départ des boucles en fonction de z et canal
     for z in range(len(liste_z)):
-        liste_points = []
         liste_filtre=[]
+        xliste = []
+        yliste = []
 
         for c in range(len(channel)):
-            image=image_importe[0,0,channel[c],0,liste_z[z],:,:,0]
+            image_a_analyser=image_importe[0,0,channel[c],0,liste_z[z],:,:,0]
+            # Affichage ou non de l'image originale
             if oui_non_image1 == 'oui':
-                image1=Image.fromarray(image)
-                image1.save(enregistrement_image1+fr"\z{z+1}_channel_{c+1}.tif")
+                image_originale=Image.fromarray(image_a_analyser,mode="I;16")
+                image_originale.save(enregistrement_image1+fr"\z{liste_z[z]+1}_channel_{channel[c]+1}.tif")
             else:
                 pass
-            image_denoising=denoising(image,channel[c],liste_z[z])
+            # Application des filtres sur l'image
+            image_denoising=denoising(image_a_analyser,channel[c],liste_z[z])
             image_hdome=h_dome(image_denoising,channel[c],liste_z[z])
             image_top_hat=top_hat(image_hdome,channel[c],liste_z[z])
             image_threshold=thresholding(image_top_hat,channel[c],liste_z[z])
+
+            # Pour chaque z, on met les images prêtes dans liste_filtre pour pouvoir
+            #    trouver les points semblables
             liste_filtre.append(image_threshold)
+
+        # On fait une boucle if pour déterminer les points semblable
         if len(channel) > 1:
             for c in range(len(channel)+1):
-                if (sommep + 1) % (len(channel) + 1) != 0:
-                    blob_detection(liste_filtre[c], gamma=channel[c], zeta=liste_z[z], somme_excel=sommep,
-                                   liste=liste_points)
-                    sommep += 1
+                if (numero_page_excel + 1) % (len(channel) + 1) != 0:
+                    blob_detection(liste_filtre[c], gamma=channel[c], zeta=liste_z[z], somme_excel=numero_page_excel,
+                                   gauss_x=liste_gauss_x,gauss_y=liste_gauss_y,xliste=xliste,yliste=yliste)
+                    numero_page_excel += 1
                 else:
-                    points_semblables(liste_points, sommep)
-                    sommep += 1
+                    points_semblables(numero_page_excel,lx=xliste,ly=yliste)
+                    numero_page_excel += 1
         else:
             for c in range(len(channel)):
-                blob_detection(liste_filtre[c], gamma=channel[c], zeta=liste_z[z], somme_excel=sommep,
-                               liste=liste_points)
-                sommep += 1
+                blob_detection(liste_filtre[c], gamma=channel[c], zeta=liste_z[z], somme_excel=numero_page_excel,
+                                   gauss_x=liste_gauss_x,gauss_y=liste_gauss_y,xliste=xliste,yliste=yliste)
+                numero_page_excel += 1
+        liste_x.append(liste_gauss_x)
+        liste_y.append(liste_gauss_y)
 
+
+# Dans cette partie, le but est de créer un matrice avec les points détectés
     sommej=0
-    sommec=0
+   # print(liste_x)
+    # On fait autant de matrices qu'il y a d'image(z x canal)
     for z in range(len(liste_z)):
         for c in range(len(channel)):
+            # On crée un matrice de 0
             matrice=np.zeros((x_image,y_image))
-            for n in range(len(liste_gauss_x)):
-                liste_gauss_x[sommec][n]=int(liste_gauss_x[sommec][n])
-                liste_gauss_y[sommec][n] = int(liste_gauss_y[sommec][n])
-                matrice[liste_gauss_y[sommec][n],liste_gauss_x[sommec][n]]=1
+
+            for element_matrice in range(len(liste_x[c][z])):
+                matrice[int(liste_y[c][z][element_matrice]),int(liste_x[c][z][element_matrice])]=255
             image_finale=Image.fromarray(matrice)
             image_finale.save(enregistrement_detection + fr"\canal{channel[c]+1}_z{liste_z[z]+1}.tif")
             np.save(enregistrement_detection + fr"\canal{channel[c]+1}_z{liste_z[z]+1}",matrice)
+
+
             worksheet=liste_excel[sommej]
             worksheet.write('F1', 'x', bold)
             worksheet.write('G1', 'y', bold)
@@ -234,10 +246,10 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
             worksheet.write('J1', 'intensité_z', bold)
             worksheet.write('K1', 'integrale', bold)
             sommeg=0
-            for i in range(len(liste_gauss_x[sommec])):
+            for i in range(len(liste_gauss_x[c])):
                 sommeg+=1
-                data, min_x, min_y = reduire_image(image_importe[0, 0, channel[c], 0, liste_z[z], :, :, 0], liste_gauss_x[sommec][i],
-                                                   liste_gauss_y[sommec][i], 15, 15)
+                data, min_x, min_y = reduire_image(image_importe[0, 0, channel[c], 0, liste_z[z], :, :, 0], liste_gauss_x[c][i],
+                                                   liste_gauss_y[c][i], 15, 15)
                 params = fitgaussian(data)
                 fit = gaussian(*params)
                 (height, x, y, sigma, offset) = params
@@ -263,7 +275,7 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
                     worksheet.write(sommeg, 8, abs(offset),success)
                     worksheet.write(sommeg, 9, abs(height),success)
                     worksheet.write(sommeg, 10, integrale,success)
-            sommec+=1
+            c+=1
             sommej += 1
         sommej+=1
 
