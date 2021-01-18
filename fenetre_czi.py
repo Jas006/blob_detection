@@ -64,7 +64,7 @@ class fenetre_analyse(tk.Tk):
         self.label_blob.grid(column=44, row=17)
         self.label_blob.bind("<Button-1>", lambda e: callback(
             "https://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.blob_log"))
-        self.label_max = tk.Label(text=f"Entrer la valeur du max sigma (30)\n Actuellement {maximum_blob}")
+        self.label_max = tk.Label(text=f"Entrer la valeur du max sigma (60)\n Actuellement {maximum_blob}")
         self.label_max.grid(column=44, row=19)
         self.max = tk.Entry()
         self.max.grid(column=44, row=21)
