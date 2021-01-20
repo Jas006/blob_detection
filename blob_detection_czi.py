@@ -231,8 +231,8 @@ def complet_czi(path,channel,liste_z,sigma_filtre_gaussien=3,taille_tophat=30,se
             # On crée un matrice de 0
             matrice=np.zeros((x_image,y_image))
 
-            for element_matrice in range(len(liste_x[c][z])):
-                matrice[int(liste_y[c][z][element_matrice]),int(liste_x[c][z][element_matrice])]=255
+            for element_matrice in range(len(liste_x[z][c])):
+                matrice[int(liste_y[z][c][element_matrice]),int(liste_x[z][c][element_matrice])]=255
             image_finale=Image.fromarray(matrice)
             image_finale.save(enregistrement_detection + fr"\canal{channel[c]+1}_z{liste_z[z]+1}.tif")
             np.save(enregistrement_detection + fr"\canal{channel[c]+1}_z{liste_z[z]+1}",matrice)
